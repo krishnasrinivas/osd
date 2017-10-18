@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -106,15 +107,30 @@ func main() {
 			break
 		}
 	}
-	fis, err := ioutil.ReadDir("browser/node_modules")
+	if err = os.Chdir("browser"); err != nil {
+		log.Fatal(err)
+	}
+
+	cmd := exec.Command("npm", "list", "--prod", "--parseable")
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, fi := range fis {
-		if fi.Name() == ".bin" || fi.Name() == ".yarn-integrity" {
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+
+	}
+	b, err = ioutil.ReadAll(stdout)
+	if err != nil {
+		log.Fatal(err)
+	}
+	str := string(b)
+	nodeModules := strings.Split(str, "\n")
+
+	for _, p := range nodeModules[1:] {
+		if p == "" {
 			continue
 		}
-		p := path.Join("browser", "node_modules", fi.Name())
 		licFile := findLicenseFile(p)
 		if licFile == "" {
 			readme := getReadme(p)
@@ -125,7 +141,7 @@ func main() {
 				if author != "" {
 					copyRight = copyRight + " Module author: " + author
 				}
-				npmComponents = append(npmComponents, component{fi.Name(), npmpackage.Version, copyRight, npmpackage.getLicenseType()})
+				npmComponents = append(npmComponents, component{npmpackage.Name, npmpackage.Version, copyRight, npmpackage.getLicenseType()})
 				continue
 			}
 			licType := getLicenseType(readme)
@@ -148,12 +164,13 @@ func main() {
 				if author != "" {
 					copyRight = copyRight + " Module author: " + author
 				}
-				npmComponents = append(npmComponents, component{fi.Name(), npmpackage.Version, copyRight, licType})
+				npmComponents = append(npmComponents, component{npmpackage.Name, npmpackage.Version, copyRight, licType})
 				continue
 			}
 			i--
 			copyRight := str[i:]
-			npmComponents = append(npmComponents, component{fi.Name(), getNPMPackage(path.Join(p, "package.json")).Version, copyRight, licType})
+			npmpackage := getNPMPackage(path.Join(p, "package.json"))
+			npmComponents = append(npmComponents, component{npmpackage.Name, npmpackage.Version, copyRight, licType})
 			continue
 
 		}
@@ -169,13 +186,15 @@ func main() {
 					copyRight = copyRight + " Module author: " + author
 				}
 			}
-			npmComponents = append(npmComponents, component{fi.Name(), getNPMPackage(path.Join(p, "package.json")).Version, copyRight, licType})
+			npmpackage := getNPMPackage(path.Join(p, "package.json"))
+			npmComponents = append(npmComponents, component{npmpackage.Name, npmpackage.Version, copyRight, licType})
 		default:
 			b, err = ioutil.ReadFile(licFile)
 			if err != nil {
 				log.Fatal(err)
 			}
-			npmComponents = append(npmComponents, component{fi.Name(), getNPMPackage(path.Join(p, "package.json")).Version, string(b), licType})
+			npmpackage := getNPMPackage(path.Join(p, "package.json"))
+			npmComponents = append(npmComponents, component{npmpackage.Name, npmpackage.Version, string(b), licType})
 		}
 	}
 	fmt.Println(`open_source_disclosures_minio 0.9.0
@@ -203,14 +222,24 @@ of the license associated with each component.
 			fmt.Printf("  >>> npm:%s %s\n", c.name, c.version)
 		}
 	}
+	fmt.Println("\nAPPENDIX: Standard License Files and Templates\n")
+	for _, t := range licenseList {
+		fmt.Printf("  >>> %s License\n", t)
+	}
 	for i, t := range licenseList {
 		fmt.Printf("\n--------------- SECTION %d: %s License ----------\n\n", i+1, t)
 		for _, c := range golangComponents {
+			if t != c.licenseTag {
+				continue
+			}
 			fmt.Printf("\n>>> Go package: %s %s\n\n", c.name, c.version)
 			fmt.Printf("%s", c.copyRight)
 			fmt.Printf("\nLicense Type: %s\n", c.licenseTag)
 		}
 		for _, c := range npmComponents {
+			if t != c.licenseTag {
+				continue
+			}
 			fmt.Printf("\n>>> NPM package: %s %s\n\n", c.name, c.version)
 			fmt.Printf("%s", c.copyRight)
 			fmt.Printf("\nLicense Type: %s\n", c.licenseTag)
@@ -256,9 +285,6 @@ func getLicenseType(licFile string) string {
 	case strings.Contains(str, "MIT"):
 		return licenseMIT
 	default:
-		// fmt.Println(licFile)
-		// fmt.Println(strings.Replace(`Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions`, " ", "", -1))
-		// os.Exit(0)
 		return "Unknown"
 	}
 }

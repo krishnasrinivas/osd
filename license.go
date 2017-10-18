@@ -1124,7 +1124,7 @@ Creative Commons may be contacted at creativecommons.org.
 
 `
 
-var licenseList = []string{licenseApache2, licenseBSD2, licenseBSD3, licenseMIT, licenseISC, licenseMPL2, licenseEPL1, licenseCreativeCommons}
+var licenseList = []string{licenseApache2, licenseBSD2, licenseBSD3, licenseMIT, licenseISC, licenseMPL2, licenseEPL1}
 
 var licenseMap = map[string]string{
 	licenseApache2:         licenseApache2Template,

@@ -7,6 +7,7 @@ import (
 )
 
 type npmpackage struct {
+	Name    string      `json:"name"`
 	Version string      `json:"version"`
 	License interface{} `json:"license"`
 	Author  interface{} `json:"author"`
