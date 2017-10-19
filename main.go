@@ -290,6 +290,9 @@ func getLicenseType(licFile string) string {
 }
 
 func findLicenseFile(p string) string {
+	if _, err := os.Stat(path.Join(p, "LICENSE.MIT")); err == nil {
+		return path.Join(p, "LICENSE.MIT")
+	}
 	fis, err := ioutil.ReadDir(p)
 	if err != nil {
 		log.Fatal(err)
